@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2048 Game</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #faf8ef;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            flex-direction: column;
+        }
+
+        h1 {
+            font-size: 3em;
+            color: #4e4b4b;
+            margin-bottom: 30px;
+        }
+
+        .score {
+            font-size: 1.5em;
+            margin-bottom: 20px;
+        }
+
+        .controls {
+            margin-bottom: 20px;
+        }
+
+        button {
+            padding: 10px 20px;
+            font-size: 18px;
+            margin: 0 10px;
+            cursor: pointer;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            transition: background-color 0.3s ease;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+
+        .grid-container {
+            display: grid;
+            gap: 10px;
+            grid-template-columns: repeat(4, 1fr);
+            grid-template-rows: repeat(4, 1fr);
+            width: 400px;
+            height: 400px;
+            background-color: #bbada0;
+            padding: 10px;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+        }
+
+        .tile {
+            background-color: #ccc0b3;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 30px;
+            color: #776e65;
+            font-weight: bold;
+            border-radius: 5px;
+            height: 100%;
+            transition: background-color 0.2s ease;
+        }
+
+        .tile[data-value="2"] { background-color: #eee4da; }
+        .tile[data-value="4"] { background-color: #ece0c8; }
+        .tile[data-value="8"] { background-color: #f2b179; }
+        .tile[data-value="16"] { background-color: #f59563; }
+        .tile[data-value="32"] { background-color: #f67c5f; }
+        .tile[data-value="64"] { background-color: #f65e3b; }
+        .tile[data-value="128"] { background-color: #edcf72; }
+        .tile[data-value="256"] { background-color: #edcc61; }
+        .tile[data-value="512"] { background-color: #edc850; }
+        .tile[data-value="1024"] { background-color: #edc53f; }
+        .tile[data-value="2048"] { background-color: #edc22e; }
+
+        .tile.merged {
+            transform: scale(1.1);
+        }
+    </style>
+</head>
+<body>
+    <h1>2048 Game</h1>
+    <div class="score">
+        <strong>Score: </strong><span id="score">0</span>
+    </div>
+    <div class="controls">
+        <button id="newGame">New Game</button>
+        <button id="changeSize">Switch to 5x5</button>
+    </div>
+    <div id="grid" class="grid-container"></div>
+
+    <script>
+        const gridElement = document.getElementById("grid");
+        const scoreElement = document.getElementById("score");
+        const newGameButton = document.getElementById("newGame");
+        const changeSizeButton = document.getElementById("changeSize");
+
+        let boardSize = 4;  // Start with a 4x4 board
+        let board = [];
+        let score = 0;
+        let gameOver = false;
+
+        // Initialize the game board
+        function initializeGame() {
+            board = Array(boardSize).fill().map(() => Array(boardSize).fill(0));
+            score = 0;
+            gameOver = false;
+            renderGrid();
+            updateScore();
+            addRandomTile();
+            addRandomTile();
+        }
+
+        // Render the grid and tiles
+        function renderGrid() {
+            gridElement.innerHTML = '';
+            gridElement.style.gridTemplateColumns = `repeat(${boardSize}, 1fr)`;
+            gridElement.style.gridTemplateRows = `repeat(${boardSize}, 1fr)`;
+            board.forEach((row, r) => {
+                row.forEach((tile, c) => {
+                    const tileElement = document.createElement('div');
+                    tileElement.classList.add('tile');
+                    tileElement.dataset.row = r;
+                    tileElement.dataset.col = c;
+                    tileElement.dataset.value = tile;
+                    tileElement.textContent = tile !== 0 ? tile : '';
+                    tileElement.style.gridRow = r + 1;
+                    tileElement.style.gridColumn = c + 1;
+                    gridElement.appendChild(tileElement);
+                });
+            });
+        }
+
+        // Add a random tile (either 2 or 4) at an empty position
+        function addRandomTile() {
+            if (gameOver) return;
+
+            const emptyCells = [];
+            board.forEach((row, r) => {
+                row.forEach((tile, c) => {
+                    if (tile === 0) emptyCells.push([r, c]);
+                });
+            });
+
+            if (emptyCells.length === 0) {
+                checkGameOver();
+                return;
+            }
+
+            const [r, c] = emptyCells[Math.floor(Math.random() * emptyCells.length)];
+            board[r][c] = Math.random() < 0.9 ? 2 : 4;
+            renderGrid();
+        }
+
+        // Check if the game is over (no valid moves left)
+        function checkGameOver() {
+            let possibleMoves = false;
+            for (let r = 0; r < boardSize; r++) {
+                for (let c = 0; c < boardSize; c++) {
+                    if (board[r][c] === 0) {
+                        possibleMoves = true;
+                        break;
+                    }
+                }
+            }
+
+            gameOver = !possibleMoves;
+            if (gameOver) {
+                setTimeout(() => alert('Game Over! No moves left.'), 100);
+            }
+        }
+
+        // Move tiles in a direction (left, right, up, down)
+        function moveTiles(direction) {
+            if (gameOver) return;
+
+            let moved = false;
+            switch (direction) {
+                case 'left':
+                    moved = moveLeft();
+                    break;
+                case 'right':
+                    moved = moveRight();
+                    break;
+                case 'up':
+                    moved = moveUp();
+                    break;
+                case 'down':
+                    moved = moveDown();
+                    break;
+            }
+
+            if (moved) {
+                addRandomTile();
+                updateScore();
+            }
+            renderGrid();
+        }
+
+        // Move tiles to the left and merge
+        function moveLeft() {
+            let moved = false;
+            for (let r = 0; r < boardSize; r++) {
+                let newRow = board[r].filter(val => val !== 0);
+                let mergedRow = [];
+                let i = 0;
+                while (i < newRow.length) {
+                    if (i + 1 < newRow.length && newRow[i] === newRow[i + 1]) {
+                        mergedRow.push(newRow[i] * 2);
+                        score += newRow[i] * 2;  // Update score on merge
+                        i += 2;
+                    } else {
+                        mergedRow.push(newRow[i]);
+                        i++;
+                    }
+                }
+                while (mergedRow.length < boardSize) {
+                    mergedRow.push(0);
+                }
+                if (JSON.stringify(board[r]) !== JSON.stringify(mergedRow)) {
+                    moved = true;
+                }
+                board[r] = mergedRow;
+            }
+            return moved;
+        }
+
+        // Move tiles to the right and merge
+        function moveRight() {
+            board.forEach(row => row.reverse());
+            let moved = moveLeft();
+            board.forEach(row => row.reverse());
+            return moved;
+        }
+
+        // Move tiles up and merge
+        function moveUp() {
+            board = rotateBoard(board);
+            let moved = moveLeft();
+            board = rotateBoard(board, true);
+            return moved;
+        }
+
+        // Move tiles down and merge
+        function moveDown() {
+            board = rotateBoard(board);
+            let moved = moveRight();
+            board = rotateBoard(board, true);
+            return moved;
+        }
+
+        // Rotate the board 90 degrees (clockwise or counterclockwise)
+        function rotateBoard(board, counterClockwise = false) {
+            const newBoard = [];
+            for (let c = 0; c < boardSize; c++) {
+                const newRow = [];
+                for (let r = boardSize - 1; r >= 0; r--) {
+                    newRow.push(board[r][c]);
+                }
+                if (counterClockwise) newRow.reverse();
+                newBoard.push(newRow);
+            }
+            return newBoard;
+        }
+
+        // Update the score on the UI
+        function updateScore() {
+            scoreElement.textContent = score;
+        }
+
+        // Switch between 4x4 and 5x5 grid sizes
+        function switchBoardSize() {
+            if (boardSize === 4) {
+                boardSize = 5;
+                changeSizeButton.textContent = 'Switch to 4x4';
+            } else {
+                boardSize = 4;
+                changeSizeButton.textContent = 'Switch to 5x5';
+            }
+            initializeGame();
+        }
+
+        // Handle key presses to move tiles
+        document.addEventListener('keydown', (e) => {
+            if (gameOver) return;
+
+            switch (e.key) {
+                case 'ArrowLeft':
+                    moveTiles('left');
+                    break;
+                case 'ArrowRight':
+                    moveTiles('right');
+                    break;
+                case 'ArrowUp':
+                    moveTiles('up');
+                    break;
+                case 'ArrowDown':
+                    moveTiles('down');
+                    break;
+            }
+        });
+
+        // Button event listeners
+        newGameButton.addEventListener('click', initializeGame);
+        changeSizeButton.addEventListener('click', switchBoardSize);
+
+        // Start the game
+        initializeGame();
+    </script>
+</body>
+</html>
